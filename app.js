@@ -1,52 +1,71 @@
 require('dotenv').config();
 
+const express = require('express')
+const bodyParser = require('body-parser');
 const jokes = require('./lib/jokes.js')
 const request = require("request");
+const PORT = 3000;
 
-// Initialize using signing secret from environment variables
-const { createEventAdapter } = require('@slack/events-api');
-const slackEvents = createEventAdapter(process.env.SLACK_SIGNING_SECRET);
-const port = process.env.PORT || 3000;
+const app = express()
 
-sendReply = function(reply_text) {
-  var data = {form: {
-      token: process.env.SLACK_AUTH_TOKEN,
-      channel: "#robot-dojo",
-      text: reply_text
-    }};
-  request.post('https://slack.com/api/chat.postMessage', data, function (error, response, body) {
-      // console.log(response);
-  });
+app.use(bodyParser.urlencoded({extended: true}));
+app.use(bodyParser.json());
+
+app.sendReply = function(reply_text) {
+  if (reply_text) {
+    var data = {form: {
+        token: process.env.SLACK_AUTH_TOKEN,
+        channel: "#robot-dojo",
+        text: reply_text
+      }};
+    request.post('https://slack.com/api/chat.postMessage', data, function (error, response, body) {
+        // console.log(response);
+    });
+    return true;
+  }
+  return false;
 }
 
-slackEvents.on('app_mention', (event)=> {
-  if (event.text.toLowerCase().includes("tell me a joke")) {
-    jokes.tell_a_new_joke(event);
-  }
-  if (event.text.toLowerCase().match(/knock.*knock/g)) {
-    jokes.respond_to_new_joke(event);
-  }
-});
+app.post('/', (req, res) => {
+  // console.log(req)
 
-slackEvents.on('message', (event) => {
-  // Make sure this isn't a mention the bot sent or you'll loop all over the place
-  if (event.subtype != 'bot_message') {
-    // console.log(`Received a message event: user ${event.username} in channel ${event.channel} says ${event.text}`);
+  let payload = req.body;
+  let response_text = null;
 
-    let bool_incoming_joke = jokes.are_they_joking(event);
-    let bool_outgoing_joke = jokes.am_i_joking(event);
+  if (payload.type == "url_verification") {
 
-    if (bool_incoming_joke === false && bool_outgoing_joke === false) {
-      // console.log('Some other type of message, including an app mention.');
+    // console.log(timestamp);
+    res.send({
+      'challenge': payload.challenge
+    })
+
+  } else {
+    res.sendStatus(200);
+
+    if (payload.event.type === "app_mention") {
+
+      if (payload.event.text.toLowerCase().includes("tell me a joke")) {
+        app.sendReply(jokes.tell_a_new_joke(payload.event));
+      }
+      if (payload.event.text.toLowerCase().match(/knock.*knock/g)) {
+        app.sendReply(jokes.respond_to_new_joke(payload.event));
+      }
+
+    } else if (payload.event.type === "message") {
+      // console.log(payload.event.subtype);
+      if (payload.event.subtype != 'bot_message') {
+        // console.log(`Received a message event: user ${event.username} in channel ${event.channel} says ${event.text}`);
+
+        app.sendReply(jokes.are_they_joking(payload.event));
+
+        app.sendReply(jokes.am_i_joking(payload.event));
+
+      }
     }
   }
 });
 
-// Handle errors (see `errorCodes` export)
-slackEvents.on('error', console.error);
-
-// Start a basic HTTP server
-slackEvents.start(port).then(() => {
-  // Listening on path '/slack/events' by default
-  console.log(`server listening on port ${port}`);
+// Starts server
+app.listen(process.env.PORT || PORT, function() {
+  console.log('Bot is listening on port ' + PORT);
 });
