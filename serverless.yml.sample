@@ -1,0 +1,24 @@
+service: robot-in-star-costume
+provider:
+  name: aws
+  runtime: nodejs10.x
+  stage: dev
+  region: us-east-1
+  memorySize: 128
+functions:
+  app:
+    handler: app.handler
+    environment:
+      SLACK_CLIENT_ID: XXXX
+      SLACK_CLIENT_SECRET: XXXX
+      SLACK_SIGNING_SECRET: XXXX
+      SLACK_AUTH_TOKEN: XXXX
+    events:
+      - http:
+          path: /
+          method: ANY
+          cors: true
+      - http:
+          path: /{proxy+}
+          method: ANY
+          cors: true

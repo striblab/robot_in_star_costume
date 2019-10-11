@@ -1,9 +1,11 @@
 require('dotenv').config();
 
+const serverless = require('serverless-http');
 const express = require('express')
 const bodyParser = require('body-parser');
 const jokes = require('./lib/jokes.js')
-const request = require("request");
+// const request = require("request");
+const axios = require("axios");
 const PORT = 3000;
 
 const app = express()
@@ -11,16 +13,28 @@ const app = express()
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(bodyParser.json());
 
+axios.defaults.headers.common['Authorization'] = `Bearer ${process.env.SLACK_AUTH_TOKEN}`;
+axios.defaults.headers.post['Content-Type'] = 'application/x-www-form-urlencoded';
+
 app.sendReply = function(reply_text) {
   if (reply_text) {
-    var data = {form: {
-        token: process.env.SLACK_AUTH_TOKEN,
-        channel: "#robot-dojo",
-        text: reply_text
-      }};
-    request.post('https://slack.com/api/chat.postMessage', data, function (error, response, body) {
-        // console.log(response);
-    });
+    var data = {
+      channel: "#robot-dojo",
+      text: reply_text
+    };
+    // request.post('https://slack.com/api/chat.postMessage', data, function (error, response, body) {
+    //     // console.log(response);
+    // });
+
+    console.log(data);
+    axios.post('https://slack.com/api/chat.postMessage', data)
+      .then(function (response) {
+        console.log('response', response.data);
+      })
+      .catch(function (error) {
+        console.log('error', error);
+      });
+
     return true;
   }
   return false;
@@ -69,3 +83,4 @@ app.post('/', (req, res) => {
 app.listen(process.env.PORT || PORT, function() {
   console.log('Bot is listening on port ' + PORT);
 });
+// module.exports.handler = serverless(app);
